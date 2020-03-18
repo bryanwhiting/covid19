@@ -139,7 +139,8 @@ df_firsts %>%
     ),
     options = list(
       pageLength = 100,
-      dom = 't'
+      dom = 't',
+      scrollX = TRUE
     )
   )
 ```
@@ -149,11 +150,12 @@ df_firsts %>%
 Looking at countries that have had at least 500 cases so far, we can see how the US is in trending with other countries, especially Italy. As of 3/17 there are 19 countries that have at least 500 cases. I'm guessing many of these will have to go into total lockdown to avoid the exponential growth.
 
 ```{r}
-df_sum %>%
-  filter(confirmed > 500) %>%
-  pull(country_region) %>% 
-  unique() %>%
-  length()
+# df_sum %>%
+#   filter(confirmed > 500) %>%
+#   pull(country_region) %>% 
+#   unique() %>%
+#   length()
+
 df_tmp <- df_sum %>%
   filter(confirmed > 500) %>% 
   mutate(day_since_500 = row_number()) %>%

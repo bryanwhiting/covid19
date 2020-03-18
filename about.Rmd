@@ -9,4 +9,7 @@ knitr::opts_chunk$set(echo = FALSE)
 ```
 
 * Source Data: https://github.com/CSSEGISandData/COVID-19
-* GitHub: 
+* John's Hopkins Map: https://coronavirus.jhu.edu/map.html
+* Link to Analyses here: https://github.com/bryanwhiting/covid19/. Look for any ".Rmd" file.
+
+I'm not an epidemiologist, just a data scientist. But the trends speak for themselves. And they say one thing: stay home! Social distance!
