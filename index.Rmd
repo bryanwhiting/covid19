@@ -133,12 +133,17 @@ df_firsts %>%
   )
 ```
 
-## Flatten the Curve
-Looking at countries that have had 500 cases, we can see how the US is in alignment with other countries, especially Italy.
+## Too Many are Trending Like Italy
+Looking at countries that have had at least 500 cases so far, we can see how the US is in alignment with other countries, especially Italy. As of 3/17 there are 19 countries that have at least 500 cases. I'm guessing many of these will have to go into total lockdown to avoid the exponential growth.
 
 ```{r}
-df_tmp <- df_sum %>%
+df_sum %>%
   filter(confirmed > 500) %>%
+  pull(country_region) %>% 
+  unique() %>%
+  length()
+df_tmp <- df_sum %>%
+  filter(confirmed > 500) %>% 
   mutate(day_since_500 = row_number()) %>%
   filter(country_region != 'Cruise Ship') %>%
   ungroup() %>%
@@ -160,7 +165,7 @@ ggplotly(p) %>%
           defaultValues = c('Italy', 'US'))
 ```
 
-To hone in on the trends, we see that the US is just ten days behind Italy. Read the headlines. If we don't take action, we'll be in the same position.
+To hone in on the trends, we see that the US is just ten days behind Italy. 
 
 ```{r}
 df_sum %>%
@@ -175,7 +180,11 @@ df_sum %>%
        x = 'Days Since Hitting 100 Confirmed Cases',
        y = 'Total Confirmed Cases',
        subtitle = 'US-confirmed cases shifted one day to the left to align trends',
-       caption = 'Data Source: github.com/CSSEGISandData/COVID-19\nbryanwhiting.com')
+       caption = 'Data Source: github.com/CSSEGISandData/COVID-19\ngithub.com/bryanwhiting/covid19')
 ```
 
+## Stay Home!
+Read the headlines. If we don't take action, we'll be in the same position.
 
+***
+The research
