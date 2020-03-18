@@ -13,6 +13,8 @@ navbar:
       menu:
         - text: "3/17: US, Europe on Track to Be Italy"
           href: 2020-03-17.html
+        - text: "3/18: Case Fatality Rate, Italy's Rise"
+          href: 2020-03-18-cfr-by-country.html
     - text: "About"
       href: about.html
     - icon: fab fa-github
