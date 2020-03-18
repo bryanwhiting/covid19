@@ -1,7 +1,7 @@
 ---
 title: "COVID-19 Analysis"
 description: |
-  Stay home, or become Italy
+  Stay home, or become [Italy](http://www.cidrap.umn.edu/news-perspective/2020/03/doctors-covid-19-pushing-italian-icus-toward-collapse)
 site: distill::distill_website
 ---
 
@@ -37,20 +37,21 @@ dfc %>%
   geom_line() +
   ggtitle('US Cases are on an Exponential Rise')
 
+```
+If we don't learn the lessons other countries have, we'll repeat their recently-learned history. Staying home saves lives.
+
+## The US Had a Delayed Start
+While China was the first to get hit by COVID-19, everyone else is actually on a similar growth trajectory (unless we take action #stayhome!). The US was in a lull for many weeks, probably because access to China was halted. But then cases came in from other sources. Now, we're past containment.
+
+This graph shows how many confirmed cases there have been in the world relative to days since the country first observed an onset. 
+
+```{r}
 # Day since 1
 df_sum <- dfc %>%
   group_by(country_region, date) %>%
   summarize(confirmed = sum(confirmed)) %>%  
   arrange(country_region, date)
-```
-If we don't learn the lessons other countries have, we'll repeat their history. Staying home saves lives.
 
-## Days Since First Onset
-While China was the first to get hit by COVID-19, everyone else is actually on a similar growth trajectory (unless we take action #stayhome!).
-
-This graph shows how many confirmed cases there have been in the world relative to days since the country first observed an onset.
-
-```{r}
 df_tmp <- df_sum %>%
   filter(confirmed > 0) %>%
   mutate(day_since_start = row_number()) %>%
@@ -74,7 +75,7 @@ ggplotly(p) %>%
           defaultValues = c('China', 'Italy', 'US'))
 ```
 
-## COVID-19 Doubles Really Fast
+## COVID-19 Doubles Really Fast, for Everyone
 No matter how long it takes a country to hit 500 cases, they all double at the same rate.
 
 Italy hit it's 500th case on day 28 of being exposed. It then doubled in 2 days. Then again. Then again.
