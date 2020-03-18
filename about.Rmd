@@ -13,3 +13,12 @@ knitr::opts_chunk$set(echo = FALSE)
 * Link to Analyses here: https://github.com/bryanwhiting/covid19/. Look for any ".Rmd" file.
 
 I'm not an epidemiologist, just a data scientist. But the trends speak for themselves. And they say one thing: stay home! Social distance!
+
+## Other Resources/Articles
+
+* US Covid tracking: https://covidtracking.com/data/
+* https://www.statnews.com/2020/03/17/a-fiasco-in-the-making-as-the-coronavirus-pandemic-takes-hold-we-are-making-decisions-without-reliable-data/?fbclid=IwAR37W1mN74Bmt9bcvfejLyMGJX6X7HXxNTxXTAzREV0CV6APygKmJ2njUAw
+
+## Academic Papers
+
+* [Estimating clinical severity of COVID-19 from the transmission dynamics in Wuhan, China](https://www.researchsquare.com/article/rs-17453/v1), March 13, 2020
