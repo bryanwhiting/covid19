@@ -1,0 +1,122 @@
+---
+title: "Italy's Fatality Rate is Rising"
+description: |
+  Case Fataility Rate by Country Over Time. Written 3/18, 4:20pm.
+site: distill::distill_website
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = FALSE)
+install.load::install_load(c('distill','dplyr', 'tidyverse', 'ggplot2', 'plotly', 'rmarkdown', 'magrittr', 'RCurl', 'lubridate', 'DT', 'ggthemes'))
+ggplot2::theme_set(theme_minimal())
+
+read_data <- function(type='Deaths') {
+  
+  fp_data = paste0('https://raw.githubusercontent.com/CSSEGISandData/COVID-19/master/csse_covid_19_data/csse_covid_19_time_series/time_series_19-covid-', type ,'.csv')
+  
+  # Read in data
+  df = read_csv(fp_data) %>%
+    select(-Lat, -Long) %>%
+    gather(date_raw, stat, 
+           -`Province/State`, -`Country/Region`) %>%
+    mutate(date = mdy(date_raw))
+  
+  df[[type]] = df$stat
+  
+  # Clean column names
+  colnames(df) %<>% 
+    tolower() %>% 
+    str_replace_all(fixed('/'), '_') %>%
+    str_replace_all(fixed(' '), '_')
+  
+  # Re-label states
+  states = tibble(state_abb = state.abb, province_state=state.name)
+  # Join states together
+  df %<>%
+    left_join(states, by='province_state') %>%
+    mutate(us_state = str_extract(province_state, '[A-Z][A-Z]$'),
+           us_state = ifelse(!is.na(us_state), us_state, state_abb))
+  
+  # Assert us_state is NA for non-US country_region
+  stopifnot(is.na(df %>% filter(country_region != 'US') %>% pull(us_state) %>% unique()))
+  
+  df %>% 
+    select(-stat, -date_raw, -state_abb) %>%
+    select(country_region, province_state, us_state, date, everything()) %>%
+    arrange(country_region, province_state, us_state, date) %>%
+    return()
+}
+
+dfd <- read_data(type='Deaths')
+dfc <- read_data(type='Confirmed')
+dfr <- read_data(type='Recovered')
+
+# join all dates together
+df <- dfd %>% left_join(dfc) %>% left_join(dfr)
+```
+
+## Italy's Case Fatality Rate is Rising, US Decreasing
+Tracking case fatatility rate (CFR) can be tricky so early in a pandemic. With data obtained from [Johns Hopkins](https://github.com/CSSEGISandData/COVID-19), we can at least get a sense for how the CFR has changed daily. Germany has a surprisingly low CFR despite having over 9,200 cases as of this writing.
+
+```{r}
+df_world_cfr <- df %>%
+  group_by(date) %>%
+  summarize(deaths = sum(deaths),
+            confirmed = sum(confirmed),
+            cfr = deaths/confirmed) %>%
+  mutate(country_region = 'World') 
+
+df_cfr = df %>%
+  group_by(country_region, date) %>%
+  summarize(deaths = sum(deaths),
+            confirmed = sum(confirmed),
+            cfr = deaths/confirmed) %>%
+  bind_rows(df_world_cfr)
+
+df_cfr %>%
+  filter(country_region %in% c('US', 'Spain', 'Italy', 'Germany', 'Iran', 'China', 'World')) %>% 
+ggplot(aes(x = date, y = cfr, color = country_region)) +
+  geom_line() + 
+  scale_y_continuous(labels = scales::percent, limits = c(0, 0.1)) + 
+  scale_color_pander(name='Country') + 
+  labs(title = 'Case Fatality Rate by Country as of a Given Date',
+       subtitle = 'Where CFR = cumulative deaths/cumulative confirmed*',
+       y = 'CFR',
+       x = '',
+       caption = '\n*CFR is known to be inaccurate so early in a pandemic\nData Source: github.com/CSSEGISandData/COVID-19\nAnalysis: github.com/bryanwhiting/covid19')
+```
+
+## Case Fatality Rate by Country as of 3/17
+As of end of 3/17/2020, here are the case fatatlity rates by country.
+
+```{r}
+df_cfr %>%
+  filter(date == '2020-03-17') %>%
+  arrange(desc(deaths)) %>%
+  select(-date) %>%
+  datatable(
+    colnames = c('Country', 'Deaths', 'Confirmed', 'CFR'),
+    options = list(
+      pageLength = 15,
+      dom = 'ftlip',
+      scrollX = TRUE
+    )
+  ) %>%
+  formatPercentage(
+    columns = 'cfr',
+    digits = 1
+  )
+```
+
+## Why This Analysis May be Misleading
+
+Measuring the Case Fatatility Rate is tricky. And you can easily lie when 1) you don't have accurate data and 2) you don't understand how to model epidimiological phenomena. I fall into both of those categories. 
+
+> The case fatality rate (CFR) represents the proportion of cases who eventually die from a disease.
+
+> Once an epidemic has ended, it is calculated with the formula: deaths / cases.
+
+> But while an epidemic is still ongoing, as it is the case with the current novel coronavirus outbreak, this formula is, at the very least, "naïve" and can be "misleading if, at the time of analysis, the outcome is unknown for a non negligible proportion of patients."[8](https://academic.oup.com/aje/article/162/5/479/82647)
+[Worldometers.info](https://www.worldometers.info/coronavirus/coronavirus-death-rate/#who-03-03-20)
+
+The CFR will likely decrease as 1) more people are tested, 2) people are treated better, and 3) testing becomes more reliable.
