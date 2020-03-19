@@ -1,5 +1,5 @@
 ---
-title: "Italy's Fatality Rate is Rising"
+title: "Italy's Fatality Rate Rises from 2.5% to now 7.9%"
 description: |
   Case Fataility Rate by Country Over Time. Written 3/18, 4:20pm.
 site: distill::distill_website
