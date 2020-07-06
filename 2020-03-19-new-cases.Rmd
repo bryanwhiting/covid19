@@ -1,0 +1,346 @@
+---
+title: "New Cases"
+description: |
+  New Cases. Written 3/18, 4:20pm.
+site: distill::distill_website
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = FALSE)
+install.load::install_load(c('distill','dplyr', 'tidyverse', 'ggplot2', 'plotly', 'rmarkdown', 'magrittr', 'RCurl', 'lubridate', 'DT', 'ggthemes', 'zoo', 'rvest', 'patchwork'))
+ggplot2::theme_set(theme_minimal())
+
+read_data <- function(type='Deaths') {
+  
+  fp_data = paste0('https://raw.githubusercontent.com/CSSEGISandData/COVID-19/master/csse_covid_19_data/csse_covid_19_time_series/time_series_19-covid-', type ,'.csv')
+  
+  # Read in data
+  df = read_csv(fp_data) %>%
+    select(-Lat, -Long) %>%
+    gather(date_raw, stat, 
+           -`Province/State`, -`Country/Region`) %>%
+    mutate(date = mdy(date_raw))
+  
+  df[[type]] = df$stat
+  
+  # Clean column names
+  colnames(df) %<>% 
+    tolower() %>% 
+    str_replace_all(fixed('/'), '_') %>%
+    str_replace_all(fixed(' '), '_')
+  
+  # Re-label states
+  states = tibble(state_abb = state.abb, province_state=state.name)
+  # Join states together
+  df %<>%
+    left_join(states, by='province_state') %>%
+    mutate(us_state = str_extract(province_state, '[A-Z][A-Z]$'),
+           us_state = ifelse(!is.na(us_state), us_state, state_abb))
+  
+  # Assert us_state is NA for non-US country_region
+  stopifnot(is.na(df %>% filter(country_region != 'US') %>% pull(us_state) %>% unique()))
+  
+  df %>% 
+    select(-stat, -date_raw, -state_abb) %>%
+    select(country_region, province_state, us_state, date, everything()) %>%
+    arrange(country_region, province_state, us_state, date) %>%
+    return()
+}
+
+get_df_population <- function(){
+  df_html = xml2::read_html('http://www.worldometers.info/world-population/population-by-country/') %>%
+    html_nodes('table') %>%
+    html_table() 
+  df_pop = df_html[[1]]
+  
+  colnames(df_pop) %<>% 
+    tolower() %>% 
+    str_replace_all(' ', '_') %>%
+    str_replace_all('\\(', '_') %>%
+    str_replace_all('\\)', '_') %>%
+    str_replace_all(fixed('__'), '_') %>%
+    str_replace_all('\\_$', '') 
+  
+  df_pop %>%
+    select(country_or_dependency, population_2020) %>%
+    rename(pop = population_2020,
+           country_region = country_or_dependency) %>%
+    mutate(country_region = ifelse(country_region == 'United States', 'US', country_region),
+           pop = readr::parse_number(pop))
+}
+
+
+
+dfd <- read_data(type='Deaths')
+dfc <- read_data(type='Confirmed')
+dfr <- read_data(type='Recovered')
+
+# join all dataframes together with population
+df <- dfd %>% 
+  left_join(dfc) %>% 
+  left_join(dfr) %>%
+  left_join(get_df_population())
+
+```
+
+```{r}
+countries = c('US', 'Spain', 'Italy', 'Germany', 'Iran', 'China')
+
+df_new = df %>%
+  filter(country_region %in% countries) %>%
+  group_by(country_region, date) %>%
+  summarize(deaths = sum(deaths),
+            confirmed = sum(confirmed),
+            recovered = sum(recovered),
+            pop = max(pop)) %>%
+  mutate(
+    deaths_pop = deaths/pop,
+    confirmed_pop = confirmed/pop,
+    cfr = deaths/confirmed,
+    cfr2 = deaths/(deaths + recovered),
+    new_deaths = deaths - lag(deaths),
+    new_confirmed = confirmed - lag(confirmed),
+    new_recovered = recovered - lag(recovered),
+    deaths_ma = zoo::rollmean(new_deaths, k=5, fill=NA),
+    confirmed_ma = zoo::rollmean(new_confirmed, k=5, fill=NA),
+    deaths_ma_pop = zoo::rollmean(new_deaths/pop, k=5, fill=NA),
+    confirmed_ma_pop = zoo::rollmean(new_confirmed/pop, k=5, fill=NA),
+    confirmed_2daypct = (new_confirmed - lag(new_confirmed, 2))/lag(new_confirmed, 2)
+  ) 
+
+#plot_line(v = 'confirmed_2daypct', 'hi', 'lag2 confirmed')
+```
+
+## New Cases, Deaths, and CFR
+
+### Confirmed
+```{r}
+df_new %>%
+  ggplot(aes(x = date, y = new_confirmed, color = country_region)) +
+  geom_line() +
+  scale_color_pander(name='Country') + 
+  labs(title = 'Daily Confirmed Cases by Country',
+       y = 'Deaths',
+       x = '',
+       caption = '\nData Source: github.com/CSSEGISandData/COVID-19\nAnalysis: github.com/bryanwhiting/covid19')
+```
+
+### Deaths
+```{r}
+df_new %>%
+  ggplot(aes(x = date, y = new_deaths, color = country_region)) +
+  geom_line() +
+  scale_color_pander(name='Country') + 
+  theme(legend.position = 'top') +
+  labs(title = 'Daily Deaths by Country',
+       y = 'Deaths',
+       x = '',
+       caption = '\nData Source: github.com/CSSEGISandData/COVID-19\nAnalysis: github.com/bryanwhiting/covid19')
+```
+
+### Deaths (Scaled by Population)
+
+```{r}
+df_new %>%
+  ggplot(aes(x = date, y = deaths_pop, color = country_region)) +
+  geom_line() +
+  scale_y_continuous(labels = scales::percent) + 
+  scale_color_pander(name='Country') + 
+  theme(legend.position = 'top') +
+  labs(title = 'Daily Deaths by Country, Scaled by Population',
+       y = 'Deaths/Population Size',
+       x = '',
+       caption = '\nData Source: github.com/CSSEGISandData/COVID-19\nAnalysis: github.com/bryanwhiting/covid19')
+```
+
+### Recovered
+
+```{r}
+df_new %>%
+  ggplot(aes(x = date, y = new_recovered, color = country_region)) +
+  geom_line() +
+  scale_color_pander(name='Country') + 
+  theme(legend.position = 'top') +
+  labs(title = 'Daily Recovered by Country',
+       y = 'Recovered',
+       x = '',
+       caption = '\nData Source: github.com/CSSEGISandData/COVID-19\nAnalysis: github.com/bryanwhiting/covid19')
+```
+
+
+
+## Cumulative Confirmed, Deaths, Recovered
+
+```{r cumulative, results='asis'}
+
+plot_line <- function(v, title, ytitle, ...) {
+  
+  p <- df_new %>%
+    ggplot(aes_string(x = 'date', y = v, color = 'country_region')) +
+    geom_line() +
+    scale_color_pander(name='Country') + 
+    theme(legend.position = 'top') +
+    labs(title = title,
+         y = ytitle,
+         x = '',
+         caption = '\nData Source: github.com/CSSEGISandData/COVID-19\nAnalysis: github.com/bryanwhiting/covid19',
+         ...)
+  if (str_detect(v, 'pop')){
+    p <- p + scale_y_continuous(labels = scales::percent)
+  }
+  return(p)
+}
+```
+
+## New Confirmed Cases, Deaths, and Recovered
+
+```{r}
+p1 = plot_line(v='new_confirmed', 
+          title = 'Daily Confirmed Cases',
+          ytitle = '')
+p2 = plot_line(v='new_deaths', 
+          title = 'Daily Deaths',
+          ytitle = '')
+p3 = plot_line(v='new_recovered', 
+          title = 'Daily Recovered',
+          ytitle = '')
+
+p1 
+p2
+p3
+```
+
+## Cumulative Confirmed Cases, Deaths, and Recovered
+
+```{r, "l-screen-inset shaded"}
+p1 = plot_line(v='confirmed', 
+          title = 'Confirmed',
+          ytitle = '')
+p2 = plot_line(v='deaths', 
+          title = 'Deaths',
+          ytitle = '')
+p3 = plot_line(v='recovered', 
+          title = 'Recovered',
+          ytitle = '')
+
+combined <- p1 + p2 + p3 & theme(legend.position = "bottom") 
+combined + plot_layout(guides = "collect") + 
+  plot_annotation(
+    title='Cumulative Confirmed Cases, Deaths, and Recovered',
+    caption = '\nData Source: github.com/CSSEGISandData/COVID-19\nAnalysis: github.com/bryanwhiting/covid19'
+  )
+```
+
+```{r}
+plot_line(v='deaths', 
+          title = 'Cumulative Daily Deaths',
+          ytitle = 'Cumulative Deaths')
+```
+
+
+```{r}
+plot_line(v='confirmed', 
+          title = 'Cumulative Daily Confirmed Cases',
+          ytitle = 'Confirmed Cases',
+          subtitle = 'Moving Average = (5-day sum)/5')
+```
+
+
+## Preliminary Case Fatality Rate
+True case fatality rate is unreliable so early in a pandemic because 
+
+1. Testing is frequently limited to those who are most ill
+2. Testing is not widely available
+3. Reporting is not widely reliable
+
+### CFR: Deaths/Confirmed
+```{r}
+df_new %>%
+  ggplot(aes(x = date, y = cfr, color = country_region)) +
+  geom_line() +
+  theme(legend.position = 'top') +
+  scale_y_continuous(labels = scales::percent, limits = c(0, 0.1)) + 
+  scale_color_pander(name='Country') + 
+  labs(title = 'Preliminary* Case Fatality Rate by Country as of a Given Date',
+       subtitle = 'Where CFR = cumulative deaths/cumulative confirmed',
+       y = 'CFR',
+       x = '',
+       caption = '\n*CFR is known to be unreliable so early in a pandemic\nData Source: github.com/CSSEGISandData/COVID-19\nAnalysis: github.com/bryanwhiting/covid19')
+```
+
+### CFR: Deaths/(Deaths + Recovered)
+
+```{r}
+df_new %>%
+  filter(recovered > 0) %>%
+  ggplot(aes(x = date, y = cfr2, color = country_region)) +
+  geom_line() +
+  theme(legend.position = 'top') +
+  scale_y_continuous(labels = scales::percent) + 
+  scale_color_pander(name='Country') + 
+  labs(title = 'Preliminary* Case Fatality Rate by Country as of a Given Date',
+       subtitle = 'Where CFR = cumulative deaths/(cum. deaths + cum. recovered)',
+       y = 'CFR',
+       x = '',
+       caption = '\n*CFR is known to be unreliable so early in a pandemic\nData Source: github.com/CSSEGISandData/COVID-19\nAnalysis: github.com/bryanwhiting/covid19')
+```
+
+
+## Moving Averages
+
+### Confirmed
+```{r}
+df_new %>%
+  ggplot(aes(x = date, y = confirmed_ma, color = country_region)) +
+  geom_line() +
+  scale_color_pander(name='Country') + 
+  labs(title = 'Moving Average of Confirmed Cases',
+       subtitle = '*MA = (sum of prior 5 days) / 5',
+       y = ' MA of New Confirmed Cases*',
+       x = '',
+       caption = '\nData Source: github.com/CSSEGISandData/COVID-19\nAnalysis: github.com/bryanwhiting/covid19')
+```
+
+### Confirmed (Scaled by Population)
+
+```{r}
+df_new %>%
+  ggplot(aes(x = date, y = confirmed_ma_pop, color = country_region)) +
+  geom_line() +
+  scale_color_pander(name='Country') + 
+  scale_y_continuous(labels = scales::percent) + 
+  labs(title = 'Moving Average of Confirmed Cases, Scaled by Population',
+       subtitle = '*MA = (sum of prior 5 days) / 5',
+       y = ' MA of New Confirmed Cases*',
+       x = '',
+       caption = '\nData Source: github.com/CSSEGISandData/COVID-19\nAnalysis: github.com/bryanwhiting/covid19')
+```
+
+### Deaths
+
+```{r}
+df_new %>%
+  ggplot(aes(x = date, y = confirmed_ma, color = country_region)) +
+  geom_line() +
+  scale_color_pander(name='Country') + 
+  labs(title = 'Moving Average of Deaths',
+       subtitle = '*MA = (sum of prior 5 days) / 5',
+       y = ' MA of Deaths*',
+       x = '',
+       caption = '\nData Source: github.com/CSSEGISandData/COVID-19\nAnalysis: github.com/bryanwhiting/covid19')
+```
+
+### Deaths (Scaled by Population)
+
+```{r}
+df_new %>%
+  ggplot(aes(x = date, y = deaths_ma_pop, color = country_region)) +
+  geom_line() +
+  scale_color_pander(name='Country') + 
+  scale_y_continuous(labels = scales::percent) + 
+  labs(title = 'Moving Average of Deaths, Scaled by Population',
+       subtitle = '*MA = (sum of prior 5 days) / 5',
+       y = ' MA of Deaths*',
+       x = '',
+       caption = '\nData Source: github.com/CSSEGISandData/COVID-19\nAnalysis: github.com/bryanwhiting/covid19')
+```

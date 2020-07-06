@@ -17,6 +17,8 @@ navbar:
           href: 2020-03-18-cfr-by-country.html
     - text: "About"
       href: about.html
+    - text: "Donate"
+      href: https://www.who.int/emergencies/diseases/novel-coronavirus-2019/donate
     - icon: fab fa-github
       href: https://github.com/bryanwhiting/covid19/blob/master/index.Rmd
 output: 
