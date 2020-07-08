@@ -6,15 +6,27 @@ site: distill::distill_website
 ---
 
 ```{r setup, include=FALSE}
+# TODO: pull in rt.live, add cumulative CFR, pull pred data from true source
+# 
 knitr::opts_chunk$set(echo = FALSE)
-install.load::install_load(c('distill','dplyr', 'tidyverse', 'ggplot2', 'plotly', 'rmarkdown', 'magrittr', 'RCurl', 'lubridate', 'DT', 'ggthemes', 'zoo'))
+install.load::install_load(c('distill','dplyr', 'tidyverse', 'ggplot2', 'plotly', 'rmarkdown', 'magrittr', 'RCurl', 'lubridate', 'DT', 'ggthemes', 'zoo', 'glue', 'scales', 'cowplot'))
+ggplot2::theme_set(theme_minimal())
 ```
 
 This main page is a dashboard being built, which may be refreshed in the future. **Last updated `r format(lubridate::now("US/Pacific"), '%a, %b %d %I:%M %p')`** PST.
 
 See "Analyses" tab for analyses performed.
 
-## World View
+# Methods/Key
+
+These charts show the relationship between deaths and new cases from 14 days prior.
+
+* Blue = 14-day lag of new cases. Light blue correpsonds to the green (deaths). Dark blue is just the last 14 days of new cases. (Shifted into the future, so they can be compared with death predictions)
+* Green = Present-day new deaths. Dark green are predictions.
+* The lines represent a 7-day moving average.
+
+Predictions were pulled from [CDC.gov](https://www.cdc.gov/coronavirus/2019-ncov/covid-data/forecasting-us.html#state-forecasts), which pulls them from [CovidHub](https://github.com/reichlab/covid19-forecast-hub).
+
 ```{r}
 
 
@@ -55,7 +67,8 @@ df <- read_covid(url_conf, 'confirmed') %>%
   left_join(read_covid(url_dead, 'dead')) %>% 
   group_by(province_state) %>%
   arrange(province_state, date) %>%
-  mutate(new = (confirmed - lag(confirmed))/10,
+  mutate(new = (confirmed - lag(confirmed)),
+         dead_cum = dead,
          dead = dead - lag(dead),
          new14 = lag(new, 14),
          new_ma = rollmean(new, k=7, fill = NA, align='right'),
@@ -70,7 +83,8 @@ df_us = read_covid(url_conf, 'confirmed') %>%
   summarize(confirmed = sum(confirmed),
             dead = sum(dead),
             population=sum(population)) %>%
-  mutate(new = (confirmed - lag(confirmed))/10,
+  mutate(new = (confirmed - lag(confirmed)),
+         dead_cum = dead,
          dead = dead - lag(dead),
          new14 = lag(new, 14),
          new_ma = rollmean(new, k=7, fill=NA, align='right'),
@@ -79,25 +93,150 @@ df_us = read_covid(url_conf, 'confirmed') %>%
   filter(date > Sys.Date() - 60) %>%
   ungroup()
 
-cor(df$new14, df$dead, use='complete.obs')
 
-ggplot2::theme_set(theme_minimal())
+# PREDICTED DEATHS
+# TODO: Update this to pull from Reichlab directly
+# https://github.com/reichlab/covid19-forecast-hub/tree/master/data-processed
+forecast_date = '2020-06-29'
+df_preds <-  read_csv(glue('https://www.cdc.gov/coronavirus/2019-ncov/covid-data/files/{forecast_date}-model-data.csv')) %>% 
+  filter(model=='Ensemble') %>% 
+  rename(date = target_week_end_date,
+         state=location_name,
+         ll = quantile_0.025,
+         ul = quantile_0.975) %>%
+  arrange(state, date)
+
+process_preds <- function(df_preds, df_tmp, state, forecast_date){
+  # subtract the dead_cum on the forecast date from the predictions
+  cum_death = df_tmp %>% filter(date == !!forecast_date) %>% pull(dead_cum)
+  day_death = df_tmp %>% filter(date == !!forecast_date) %>% pull(dead_ma)
+  
+  pred_cum_death <- df_preds %>% 
+    filter(state == !!state) %>% 
+    summarize(max(point)) %>% 
+    pull()
+  
+  df_out <- df_preds %>% 
+    filter(state == !!state) %>% 
+    # data need to be re-calculated to be not in cumulative form
+    # subtract the cum_death to get first week's pred adjusted
+    # and then subtract pred from prior prediction bc it's predicting cum death
+    # divide by 7 because it's predicting cum death for the week
+    mutate(
+      point = (point - cum_death)/7,
+      point = point - lag(point, default=0),
+      ll = (ll - cum_death)/7,
+      ll = ll - lag(ll, default=0),
+      ul = (ul - cum_death)/7,
+      ul = ul - lag(ul, default=0)) %>% 
+    select(date, point, ll, ul) %>%
+    # Join the 
+    rbind(data.frame(
+      list(
+        date=forecast_date, 
+        point=day_death, 
+        ll=day_death, 
+        ul=day_death)
+    )) %>%
+    arrange(date)
+  return(list(df_pred=df_out, pred_cum_death=pred_cum_death))
+}
+
+
+df_tmp <- df_us
+out <- process_preds(df_preds, df_tmp, state ='National', forecast_date = forecast_date)
+df_pred <- out$df_pred
+pred_cum_death <- out$pred_cum_death
+
+
+# cor(df$new14, df$dead, use='complete.obs')
+
 ```
 
 ```{r}
-plot_trends <- function(df_tmp, title) {
-  colors = palette_pander(2) 
+plot_trends <- function(df_tmp, state, df_pred, pred_cum_death) {
+  colors = palette_pander(6) 
+  # Dark green color is a shade of #009e73: https://www.color-hex.com/color/009e73
+  dk_green = "#005e45"
   
   df1 <- df_tmp %>% select(date, new14, new14_ma)
   df2 <- df_tmp %>% select(date, dead, dead_ma)
+  df3 <- df_tmp %>% filter(date >= Sys.Date() - 14) %>% 
+    select(date, new, new_ma) %>%
+    mutate(date = date + 14)
   
+  # Dates for plotting
+  min_date = min(df1$date)
+  pred_date = min(df_pred$date)
+  min_pred_date = min(df_pred[2:nrow(df_pred),]$date)
+  max_date = max(df_pred$date)
+  middle_date = (max_date - min_pred_date)/2 + min_pred_date
+  forecast_title = glue('{month(pred_date)}/{day(pred_date)} FORECAST')
+  
+  # Title: deaths
+  curr_dead = df_tmp %>% filter(date == max(df_tmp$date))
+  curr_dead_cnt = curr_dead %>% pull(dead_cum)
+  curr_date = curr_dead %>% pull(date) 
+  
+  max_pred = df_pred %>% filter(date == max(df_pred$date)) 
+  dead_growth = pred_cum_death - curr_dead_cnt
+  
+  curr_date_str = glue('{month(curr_date)}/{day(curr_date)}')
+  max_date_str = glue('{month(max_date)}/{day(max_date)}')
+  title_str = glue('{state}\n{curr_date_str} = {comma(curr_dead_cnt)} [ +{comma(dead_growth)} by {max_date_str} = {comma(pred_cum_death)}]')
+  
+  # New cases
   p <- ggplot() + 
     geom_point(data=df1, aes(x=date, y=new14), alpha=.5, color=colors[1]) +
-    geom_line(data=df1, aes(x=date, y=new14_ma), color=colors[1]) +
+    geom_line(data=df1, aes(x=date, y=new14_ma), color=colors[1]) + 
+    geom_point(data=df3, aes(x=date, y=new), alpha=.5, color=colors[4]) +
+    geom_line(data=df3, aes(x=date, y=new_ma), color=colors[4]) +
+    scale_x_date(limits = c(min_date, max_date)) + 
+    scale_y_continuous(label=comma) + 
+    theme(axis.text.x = element_blank(),
+          plot.margin = unit(c(0, 0, 0, 0), "cm")) +
+    annotate("label", x=min_date, y=max(df_tmp$new), label='14-day Lag of New Cases', hjust=0) +
+    labs(x='', y='')  
+  
+  p2 <- ggplot() +
+    geom_rect(aes(xmin = min_pred_date, 
+                  xmax = max_date, 
+                  ymin = -Inf, 
+                  ymax = Inf), fill='gray', alpha=0.2) + 
     geom_point(data=df2, aes(x=date, y=dead), alpha=.5, color=colors[2]) +
     geom_line(data=df2, aes(x=date, y=dead_ma), color=colors[2]) +
-    labs(title=title, y='', x='') + 
-    scale_x_date(labels = scales::date_format("%m/%d")) 
+    scale_y_continuous(label=comma) + 
+    scale_x_date(labels = scales::date_format("%m/%d"), 
+                 limits=c(min_date, max_date)) +
+    geom_line(data=df_pred, aes(x=date, y=point), color=dk_green, linetype='dashed') + 
+    geom_point(data=df_pred, aes(x=date, y=point), color=dk_green) + 
+    geom_ribbon(data=df_pred, aes(x=date, ymin=ll, ymax=ul), color=dk_green, alpha=0.1, fill=dk_green) +
+    theme(plot.margin = unit(c(0, 0, 0, 0), "cm")) + 
+    annotate("text", x=middle_date, y=max(df_pred$ul, df_tmp$dead), label=forecast_title) + 
+    annotate("label", x=min_date, y=max(df_pred$ul, df_tmp$dead), label='Deaths', hjust=0) + 
+    labs(x='', y='')
+  
+  # title: https://wilkelab.org/cowplot/articles/plot_grid.html#joint-plot-titles
+  title <- ggdraw() + 
+    draw_label(
+      title_str,
+      fontface = 'bold',
+      x = 0,
+      hjust = 0
+    ) +
+    theme(plot.margin = margin(0, 0, 0, 7)) 
+  
+  # titles <- cowplot::plot_grid(title, subtitle, ncol=1, rel_heights=c(0.2, 1))
+  # subtitle <- ggdraw() +
+  #   draw_label(title_str, x = 0, hjust = 0) + 
+  #    theme(plot.margin = margin(0, 0, 0, 0)) 
+  
+  # TODO: add rt.live on bottom 
+  # TODO: Fix subtitle
+  # plots <- cowplot::plot_grid(p, p2, p2, align='v', ncol=1, rel_heights = c(0.3, 0.3, 0.2))
+  plots <- plot_grid(p, p2, align='v', ncol=1)
+  plot_grid(title, plots, ncol=1, rel_heights = c(0.1, .9))
+    
   # Attempt to add legend
   # scale_color_identity(guide='legend')
   # scale_color_identity(name='Points', guide='legend',
@@ -106,21 +245,33 @@ plot_trends <- function(df_tmp, title) {
                        # breaks=colors)
                      # values=c(colors[1], colors[2]),
                      # labels=c('a', 'b'))
-  return(p)
+  # return(p)
 }
+
+
 ```
 # US
 ```{r}
-plot_trends(df_us, 'US')
+plot_trends(df_us, state='US', df_pred=df_pred, pred_cum_death = pred_cum_death) 
+  
+# Rt.live predictions <- https://d14wlfuexuxgcm.cloudfront.net/covid/rt.csv
 ```
 
 # States
-```{r}
-states = df$province_state %>% unique() %>% sort()
+```{r, results='asis'} 
+#  fig.show="hold", out.width="50%",
+#, layout="l-screen-inset"}
+states = state.name
+states = c('California', 'Texas', 'Utah', 'Colorado', 'Virginia')
 for (state in states){
   df_tmp <- df %>% filter(province_state == !!state) 
-  p <- plot_trends(df_tmp, title=state)
-  # print(ggplotly(p))
+  
+  out <- process_preds(df_preds, df_tmp, state =state, forecast_date = forecast_date)
+  df_pred <- out$df_pred
+  pred_cum_death <- out$pred_cum_death
+  
+  p <- plot_trends(df_tmp, state=state, df_pred=df_pred, pred_cum_death = pred_cum_death) 
+  print(glue('\n#### {state}\n'))
   print(p)
 }
 
