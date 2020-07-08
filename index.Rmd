@@ -7,7 +7,7 @@ site: distill::distill_website
 
 ```{r setup, include=FALSE}
 # TODO: pull in rt.live, add cumulative CFR, pull pred data from true source
-# 
+# TODO: reduce spacing between caption and plot
 knitr::opts_chunk$set(echo = FALSE)
 install.load::install_load(c('distill','dplyr', 'tidyverse', 'ggplot2', 'plotly', 'rmarkdown', 'magrittr', 'RCurl', 'lubridate', 'DT', 'ggthemes', 'zoo', 'glue', 'scales', 'cowplot'))
 ggplot2::theme_set(theme_minimal())
@@ -17,13 +17,14 @@ This main page is a dashboard being built, which may be refreshed in the future.
 
 See "Analyses" tab for analyses performed.
 
-# Methods/Key
+# Plot Explanation
 
 These charts show the relationship between deaths and new cases from 14 days prior.
 
 * Blue = 14-day lag of new cases. Light blue correpsonds to the green (deaths). Dark blue is just the last 14 days of new cases. (Shifted into the future, so they can be compared with death predictions)
 * Green = Present-day new deaths. Dark green are predictions.
 * The lines represent a 7-day moving average.
+* The title shows cumulative deaths and [predicted cumulative deaths over next 4 weeks].
 
 Predictions were pulled from [CDC.gov](https://www.cdc.gov/coronavirus/2019-ncov/covid-data/forecasting-us.html#state-forecasts), which pulls them from [CovidHub](https://github.com/reichlab/covid19-forecast-hub).
 
@@ -183,7 +184,7 @@ plot_trends <- function(df_tmp, state, df_pred, pred_cum_death) {
   
   curr_date_str = glue('{month(curr_date)}/{day(curr_date)}')
   max_date_str = glue('{month(max_date)}/{day(max_date)}')
-  title_str = glue('{state}\n{curr_date_str} = {comma(curr_dead_cnt)} [ +{comma(dead_growth)} by {max_date_str} = {comma(pred_cum_death)}]')
+  title_str = glue('{state}\n{curr_date_str} = {comma(curr_dead_cnt)} [+{comma(dead_growth)} by {max_date_str} = {comma(pred_cum_death)}]')
   
   # New cases
   p <- ggplot() + 
@@ -195,7 +196,7 @@ plot_trends <- function(df_tmp, state, df_pred, pred_cum_death) {
     scale_y_continuous(label=comma) + 
     theme(axis.text.x = element_blank(),
           plot.margin = unit(c(0, 0, 0, 0), "cm")) +
-    annotate("label", x=min_date, y=max(df_tmp$new), label='14-day Lag of New Cases', hjust=0) +
+    annotate("label", x=min_date, y=max(df_tmp$new), label='14-day Lag of New Cases', hjust=0, vjust=1) +
     labs(x='', y='')  
   
   p2 <- ggplot() +
@@ -213,8 +214,8 @@ plot_trends <- function(df_tmp, state, df_pred, pred_cum_death) {
     geom_ribbon(data=df_pred, aes(x=date, ymin=ll, ymax=ul), color=dk_green, alpha=0.1, fill=dk_green) +
     theme(plot.margin = unit(c(0, 0, 0, 0), "cm")) + 
     annotate("text", x=middle_date, y=max(df_pred$ul, df_tmp$dead), label=forecast_title) + 
-    annotate("label", x=min_date, y=max(df_pred$ul, df_tmp$dead), label='Deaths', hjust=0) + 
-    labs(x='', y='')
+    annotate("label", x=min_date, y=max(df_pred$ul, df_tmp$dead), label='Deaths', hjust=0, vjust=1) + 
+    labs(x='', y='', caption='bryanwhiting.github.io/covid19\nForecasts: covid19forecasthub.org, cdc.gov; Data: Johns Hopkins') 
   
   # title: https://wilkelab.org/cowplot/articles/plot_grid.html#joint-plot-titles
   title <- ggdraw() + 
@@ -235,7 +236,7 @@ plot_trends <- function(df_tmp, state, df_pred, pred_cum_death) {
   # TODO: Fix subtitle
   # plots <- cowplot::plot_grid(p, p2, p2, align='v', ncol=1, rel_heights = c(0.3, 0.3, 0.2))
   plots <- plot_grid(p, p2, align='v', ncol=1)
-  plot_grid(title, plots, ncol=1, rel_heights = c(0.1, .9))
+  plot_grid(title, plots, ncol=1, rel_heights = c(0.15, .9))
     
   # Attempt to add legend
   # scale_color_identity(guide='legend')
@@ -262,7 +263,7 @@ plot_trends(df_us, state='US', df_pred=df_pred, pred_cum_death = pred_cum_death)
 #  fig.show="hold", out.width="50%",
 #, layout="l-screen-inset"}
 states = state.name
-states = c('California', 'Texas', 'Utah', 'Colorado', 'Virginia')
+# states = c('California', 'Texas', 'Utah', 'Colorado', 'Virginia')
 for (state in states){
   df_tmp <- df %>% filter(province_state == !!state) 
   
@@ -271,8 +272,9 @@ for (state in states){
   pred_cum_death <- out$pred_cum_death
   
   p <- plot_trends(df_tmp, state=state, df_pred=df_pred, pred_cum_death = pred_cum_death) 
-  print(glue('\n#### {state}\n'))
+  cat(glue('\n\n#### {state}\n\n\n'))
   print(p)
+  cat('\n ')
 }
 
   
