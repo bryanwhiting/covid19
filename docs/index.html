@@ -19,29 +19,29 @@
  <!--/radix_placeholder_import_source-->
 
   <!--radix_placeholder_meta_tags-->
-  <title>COVID-19 Analysis: COVID-19 World and US View</title>
+  <title>COVID-19 Analysis: COVID-19 US and State Trends</title>
   
-  <meta property="description" itemprop="description" content="Stay home, safe a life."/>
+  <meta property="description" itemprop="description" content="Wear a mask, safe a life."/>
   
   
   
   <!--  https://developers.facebook.com/docs/sharing/webmasters#markup -->
-  <meta property="og:title" content="COVID-19 Analysis: COVID-19 World and US View"/>
+  <meta property="og:title" content="COVID-19 Analysis: COVID-19 US and State Trends"/>
   <meta property="og:type" content="article"/>
-  <meta property="og:description" content="Stay home, safe a life."/>
+  <meta property="og:description" content="Wear a mask, safe a life."/>
   <meta property="og:locale" content="en_US"/>
   <meta property="og:site_name" content="COVID-19 Analysis"/>
   
   <!--  https://dev.twitter.com/cards/types/summary -->
   <meta property="twitter:card" content="summary"/>
-  <meta property="twitter:title" content="COVID-19 Analysis: COVID-19 World and US View"/>
-  <meta property="twitter:description" content="Stay home, safe a life."/>
+  <meta property="twitter:title" content="COVID-19 Analysis: COVID-19 US and State Trends"/>
+  <meta property="twitter:description" content="Wear a mask, safe a life."/>
   
   <!--/radix_placeholder_meta_tags-->
   <!--radix_placeholder_rmarkdown_metadata-->
   
   <script type="text/json" id="radix-rmarkdown-metadata">
-  {"type":"list","attributes":{"names":{"type":"character","attributes":{},"value":["title","description","site"]}},"value":[{"type":"character","attributes":{},"value":["COVID-19 World and US View"]},{"type":"character","attributes":{},"value":["Stay home, safe a life.\n"]},{"type":"character","attributes":{},"value":["distill::distill_website"]}]}
+  {"type":"list","attributes":{"names":{"type":"character","attributes":{},"value":["title","description","site"]}},"value":[{"type":"character","attributes":{},"value":["COVID-19 US and State Trends"]},{"type":"character","attributes":{},"value":["Wear a mask, safe a life."]},{"type":"character","attributes":{},"value":["distill::distill_website"]}]}
   </script>
   <!--/radix_placeholder_rmarkdown_metadata-->
   <!--radix_placeholder_navigation_in_header-->
@@ -1279,7 +1279,7 @@
 <!--radix_placeholder_front_matter-->
 
 <script id="distill-front-matter" type="text/json">
-{"title":"COVID-19 World and US View","description":"Stay home, safe a life.","authors":[]}
+{"title":"COVID-19 US and State Trends","description":"Wear a mask, safe a life.","authors":[]}
 </script>
 
 <!--/radix_placeholder_front_matter-->
@@ -1316,8 +1316,8 @@ Analyses
 <!--/radix_placeholder_site_before_body-->
 
 <div class="d-title">
-<h1>COVID-19 World and US View</h1>
-<p>Stay home, safe a life.</p>
+<h1>COVID-19 US and State Trends</h1>
+<p>Wear a mask, safe a life.</p>
 </div>
 
 
@@ -1331,17 +1331,18 @@ Analyses
 </ul>
 </nav>
 <hr class="d-toc-separator"/>
-<p>This main page is a dashboard being built, which may be refreshed in the future. <strong>Last updated Wed, Jul 08 09:32 AM</strong> PST.</p>
-<p>See “Analyses” tab for analyses performed.</p>
+<p><strong>Last updated Wed, Jul 08 10:06 AM</strong> PST.</p>
+<p>See “Analyses” tab for past analyses performed.</p>
 <h1 id="plot-explanation">Plot Explanation</h1>
-<p>These charts show the relationship between deaths and new cases from 14 days prior.</p>
+<p>Decision makers monitor new cases as they’re correlated with deaths 14 days later. Models often predict cumulative deaths, which I feel can hide the recent trends and make it harder to see how much cases are rising or falling. This site is created to show how new cases relates to deaths 14 days later and includes forecasts for deaths. The goal is for this to be a resource. As you see headlines reporting new cases, you can use these plots to put past trends in perspective with current and expected trends.</p>
 <ul>
-<li>Blue = 14-day lag of new cases. Light blue correpsonds to the green (deaths). Dark blue is just the last 14 days of new cases. (Shifted into the future, so they can be compared with death predictions)</li>
-<li>Green = Present-day new deaths. Dark green are predictions.</li>
-<li>The lines represent a 7-day moving average.</li>
-<li>The title shows cumulative deaths and [predicted cumulative deaths over next 4 weeks].</li>
+<li><strong>Title:</strong> The chart title shows “current cumulative deaths and [predicted cumulative deaths over next 4 weeks]”.</li>
+<li><strong>Chart Points/Colors:</strong> Blue = 14-day lag of new cases. Light blue correpsonds to the green (present day deaths deaths). Dark blue is just the last 14 days of new cases and doesn’t have an associated green dot due to the lag shift. The dark blue can correspond to the dark green (predictions). This helps show how the current trends in new cases relate to the most recent predictions.</li>
+<li><strong>Chart Lines:</strong> The lines represent a 7-day moving average. The dotted line represents forecasted trend.</li>
+<li><strong>Forecasts:</strong> The shaded cone represents forecast uncertainty. The gray background shading represents forecast period. As time passes, some light-green dots appear in the forecast period which can help you assess the accuracy of predicted deaths as it relates to observed deaths.</li>
 </ul>
-<p>Predictions were pulled from <a href="https://www.cdc.gov/coronavirus/2019-ncov/covid-data/forecasting-us.html#state-forecasts">CDC.gov</a>, which pulls them from <a href="https://github.com/reichlab/covid19-forecast-hub">CovidHub</a>.</p>
+<p>Predictions were pulled from <a href="https://www.cdc.gov/coronavirus/2019-ncov/covid-data/forecasting-us.html#state-forecasts">CDC.gov</a>, which pulls them from <a href="https://github.com/reichlab/covid19-forecast-hub">CovidHub</a>. The forecast model used is the “Ensemble” model, which averages across various models in a wisdom-of-the-crowd type prediction.</p>
+<p>As predictions are reported in cumulative terms, I subtracted cumulative deaths as of the day of prediction and then divided weekly cumulative predictions by 7 to get a daily prediction. E.g., if cumulative predictions are 1000 on a forecast date of 6/1, and 6/8 predictions are 1200, the weekly prediction is 200 and the daily predictions are 200/7=28.5. Forecast points are on every Saturday. Forecasts happen weekly on Mondays.</p>
 <div class="layout-chunk" data-layout="l-body">
 
 </div>

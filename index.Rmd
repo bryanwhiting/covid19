@@ -1,32 +1,33 @@
 ---
-title: "COVID-19 World and US View"
-description: |
-  Stay home, safe a life.
+title: "COVID-19 US and State Trends"
+description: Wear a mask, safe a life.
 site: distill::distill_website
 ---
 
 ```{r setup, include=FALSE}
 # TODO: pull in rt.live, add cumulative CFR, pull pred data from true source
 # TODO: reduce spacing between caption and plot
+# TODO: Add bar for title + caption: https://stackoverflow.com/questions/42351011/customize-background-color-of-ggtitle
 knitr::opts_chunk$set(echo = FALSE)
 install.load::install_load(c('distill','dplyr', 'tidyverse', 'ggplot2', 'plotly', 'rmarkdown', 'magrittr', 'RCurl', 'lubridate', 'DT', 'ggthemes', 'zoo', 'glue', 'scales', 'cowplot'))
 ggplot2::theme_set(theme_minimal())
 ```
 
-This main page is a dashboard being built, which may be refreshed in the future. **Last updated `r format(lubridate::now("US/Pacific"), '%a, %b %d %I:%M %p')`** PST.
+**Last updated `r format(lubridate::now("US/Pacific"), '%a, %b %d %I:%M %p')`** PST.
 
-See "Analyses" tab for analyses performed.
+See "Analyses" tab for past analyses performed.
 
 # Plot Explanation
+Decision makers monitor new cases as they're correlated with deaths 14 days later. Models often predict cumulative deaths, which I feel can hide the recent trends and make it harder to see how much cases are rising or falling. This site is created to show how new cases relates to deaths 14 days later and includes forecasts for deaths. The goal is for this to be a resource. As you see headlines reporting new cases, you can use these plots to put past trends in perspective with current and expected trends.
 
-These charts show the relationship between deaths and new cases from 14 days prior.
+* **Title:** The chart title shows "current cumulative deaths and [predicted cumulative deaths over next 4 weeks]".
+* **Chart Points/Colors:** Blue = 14-day lag of new cases. Light blue correpsonds to the green (present day deaths deaths). Dark blue is just the last 14 days of new cases and doesn't have an associated green dot due to the lag shift. The dark blue can correspond to the dark green (predictions). This helps show how the current trends in new cases relate to the most recent predictions.
+* **Chart Lines:** The lines represent a 7-day moving average. The dotted line represents forecasted trend.
+* **Forecasts:** The shaded cone represents forecast uncertainty. The gray background shading represents forecast period. As time passes, some light-green dots appear in the forecast period which can help you assess the accuracy of predicted deaths as it relates to observed deaths.
 
-* Blue = 14-day lag of new cases. Light blue correpsonds to the green (deaths). Dark blue is just the last 14 days of new cases. (Shifted into the future, so they can be compared with death predictions)
-* Green = Present-day new deaths. Dark green are predictions.
-* The lines represent a 7-day moving average.
-* The title shows cumulative deaths and [predicted cumulative deaths over next 4 weeks].
+Predictions were pulled from [CDC.gov](https://www.cdc.gov/coronavirus/2019-ncov/covid-data/forecasting-us.html#state-forecasts), which pulls them from [CovidHub](https://github.com/reichlab/covid19-forecast-hub). The forecast model used is the "Ensemble" model, which averages across various models in a wisdom-of-the-crowd type prediction.
 
-Predictions were pulled from [CDC.gov](https://www.cdc.gov/coronavirus/2019-ncov/covid-data/forecasting-us.html#state-forecasts), which pulls them from [CovidHub](https://github.com/reichlab/covid19-forecast-hub).
+As predictions are reported in cumulative terms, I subtracted cumulative deaths as of the day of prediction and then divided weekly cumulative predictions by 7 to get a daily prediction. E.g., if cumulative predictions are 1000 on a forecast date of 6/1, and 6/8 predictions are 1200, the weekly prediction is 200 and the daily predictions are 200/7=28.5. I plot the daily prediction. Forecast points are on every Saturday. Forecasts happen weekly on Mondays.
 
 ```{r}
 
@@ -212,10 +213,13 @@ plot_trends <- function(df_tmp, state, df_pred, pred_cum_death) {
     geom_line(data=df_pred, aes(x=date, y=point), color=dk_green, linetype='dashed') + 
     geom_point(data=df_pred, aes(x=date, y=point), color=dk_green) + 
     geom_ribbon(data=df_pred, aes(x=date, ymin=ll, ymax=ul), color=dk_green, alpha=0.1, fill=dk_green) +
-    theme(plot.margin = unit(c(0, 0, 0, 0), "cm")) + 
+    theme(plot.margin = unit(c(0, 0, 0, 0), "cm"), 
+          plot.caption.position='plot',
+          plot.caption = element_text(hjust=0, vjust=10)) + 
     annotate("text", x=middle_date, y=max(df_pred$ul, df_tmp$dead), label=forecast_title) + 
     annotate("label", x=min_date, y=max(df_pred$ul, df_tmp$dead), label='Deaths', hjust=0, vjust=1) + 
-    labs(x='', y='', caption='bryanwhiting.github.io/covid19\nForecasts: covid19forecasthub.org, cdc.gov; Data: Johns Hopkins') 
+    labs(x='', y='', caption='Plot: bryanwhiting.github.io/covid19\nForecasts: covid19forecasthub.org, cdc.gov; Data: Johns Hopkins') 
+  # p2
   
   # title: https://wilkelab.org/cowplot/articles/plot_grid.html#joint-plot-titles
   title <- ggdraw() + 
@@ -235,7 +239,7 @@ plot_trends <- function(df_tmp, state, df_pred, pred_cum_death) {
   # TODO: add rt.live on bottom 
   # TODO: Fix subtitle
   # plots <- cowplot::plot_grid(p, p2, p2, align='v', ncol=1, rel_heights = c(0.3, 0.3, 0.2))
-  plots <- plot_grid(p, p2, align='v', ncol=1)
+  plots <- plot_grid(p, p2, align='v', ncol=1, rel_heights=c(0.4, 0.6))
   plot_grid(title, plots, ncol=1, rel_heights = c(0.15, .9))
     
   # Attempt to add legend
