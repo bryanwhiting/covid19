@@ -99,7 +99,7 @@ df_us = read_covid(url_conf, 'confirmed') %>%
 # PREDICTED DEATHS
 # TODO: Update this to pull from Reichlab directly
 # https://github.com/reichlab/covid19-forecast-hub/tree/master/data-processed
-forecast_date = '2020-06-29'
+forecast_date = '2020-07-06'
 df_preds <-  read_csv(glue('https://www.cdc.gov/coronavirus/2019-ncov/covid-data/files/{forecast_date}-model-data.csv')) %>% 
   filter(model=='Ensemble') %>% 
   rename(date = target_week_end_date,
@@ -150,8 +150,39 @@ out <- process_preds(df_preds, df_tmp, state ='National', forecast_date = foreca
 df_pred <- out$df_pred
 pred_cum_death <- out$pred_cum_death
 
-
 # cor(df$new14, df$dead, use='complete.obs')
+
+
+# PLOTLY GRAPH
+# ay <- list(
+#   tickfont = list(color = "red"),
+#   overlaying = "y",
+#   side = "right",
+#   title = "second y axis"
+# )
+# 
+# colors = palette_pander(2)
+# p1 = plot_ly(df_tmp, x=~date) %>%
+#   add_trace(y=~new_ma, name='new',
+#             mode='lines', type='scatter',
+#             line=list(color=colors[1])
+#             ) %>%
+#   add_trace(y=~new, name=' ', mode='markers', type='scatter', 
+#             type='scatter', marker=list(color=colors[1])) %>%
+#   subplot()
+# p2 = plot_ly() %>%
+#   add_trace(x=df_tmp$date, y=df_tmp$dead,
+#             name='dead',  mode='lines+markers',
+#             line=list(color=colors[2]),
+#             marker=list(color=colors[2]),
+#             type='scatter') %>%
+#   subplot()
+# subplot(p1, p2, nrows=2, shareX = T, margin=0.03, heights=c(0.6, 0.4)) %>%
+#   layout(
+#     title=list(text='Hello', xanchor='left')
+#     # annotations = list(text = 'hi', showarrow=F, xref='paper', yref='paper',
+#     #   xanchor='right', yanchor='auto', xshift=0, yshift=0, x = 1, y = -0.1)
+#     )
 
 ```
 
