@@ -287,14 +287,14 @@ plot_trends <- function(df_tmp, state, df_pred, pred_cum_death) {
 
 ```
 # US
-```{r}
+```{r, fig.height=7, fig.width=6}
 plot_trends(df_us, state='US', df_pred=df_pred, pred_cum_death = pred_cum_death) 
   
 # Rt.live predictions <- https://d14wlfuexuxgcm.cloudfront.net/covid/rt.csv
 ```
 
 # States
-```{r, results='asis'} 
+```{r, results='asis', fig.height=7, fig.width=7} 
 #  fig.show="hold", out.width="50%",
 #, layout="l-screen-inset"}
 states = state.name
