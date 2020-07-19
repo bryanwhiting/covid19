@@ -100,6 +100,7 @@ df_us = read_covid(url_conf, 'confirmed') %>%
 # TODO: Update this to pull from Reichlab directly
 # https://github.com/reichlab/covid19-forecast-hub/tree/master/data-processed
 forecast_date = '2020-07-06'
+forecast_date = '2020-07-13'
 df_preds <-  read_csv(glue('https://www.cdc.gov/coronavirus/2019-ncov/covid-data/files/{forecast_date}-model-data.csv')) %>% 
   filter(model=='Ensemble') %>% 
   rename(date = target_week_end_date,
