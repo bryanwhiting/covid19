@@ -50,7 +50,6 @@ jobs:
 
     - name: Install R packages
       run: |
-        cd site
         Rscript -e 'install.packages("renv")'
         Rscript -e 'renv::restore()'
         Rscript -e 'renv::diagnostics()'
