@@ -54,7 +54,6 @@ jobs:
         Rscript -e 'renv::restore()'
         Rscript -e 'renv::diagnostics()'
         Rscript -e 'rmarkdown::render_site("index.Rmd")'
-        cd
     # BUILD SITE -----------------------------------------
     - name: Manual Build
       run: |
