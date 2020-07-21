@@ -24,7 +24,11 @@ jobs:
     steps:
     - name: Checkout Code
       uses: actions/checkout@v2
-
+    - name: git clone sports site
+      run: |
+        git config --global user.email "bryan.g.whiting@gmail.com"
+        git config --global user.name "Bryan Whiting"
+        
     # https://github.com/r-lib/actions/blob/master/examples/blogdown.yaml
     - uses: r-lib/actions/setup-pandoc@v1
       with:
