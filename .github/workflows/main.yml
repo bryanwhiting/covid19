@@ -1,0 +1,74 @@
+name: Covid build
+
+on:
+  # Trigger the workflow on push or pull request,
+  # but only for the master branch
+  push:
+    branches:
+      - master
+  pull_request:
+    branches:
+      - master
+  # schedule: https://help.github.com/en/actions/automating-your-workflow-with-github-actions/events-that-trigger-workflows#scheduled-events-schedule
+  schedule:
+    - cron: '0 11 * * *'
+
+jobs:
+  build:
+
+    runs-on: ubuntu-latest
+    #runs-on: macOS-latest
+
+    steps:
+    - name: Checkout Code
+      uses: actions/checkout@v2
+
+    # https://github.com/r-lib/actions/blob/master/examples/blogdown.yaml
+    - uses: r-lib/actions/setup-pandoc@v1
+      with:
+        pandoc-version: '2.7.3' # The pandoc version to download (if necessary) and use.
+    #- run: echo "# Test" | pandoc -t html
+    - name: Check Pandoc Installation
+      run: pandoc --version; rc=$?; if [[ $rc != 0 ]]; then exit $rc; fi
+    
+    # DOWNLOAD R -----------------------------------------
+    - name: Set up R
+      uses: r-lib/actions/setup-r@v1
+      with:
+        r-version: '3.6.2'
+
+    - name: Cache Renv packages
+      uses: actions/cache@v1
+      with:
+        path: ~/.local/share/renv
+        key: renv-${{ hashFiles('site/renv.lock') }}
+        restore-keys: |
+          renv-
+    # for curl package "libcurl not found"
+    - name: ubuntu packages
+      run: sudo apt-get -y install libcurl4-openssl-dev pkg-config
+
+    - name: Install R packages
+      run: |
+        cd site
+        Rscript -e 'install.packages("renv")'
+        Rscript -e 'renv::restore()'
+        Rscript -e 'renv::diagnostics()'
+        Rscript -e 'rmarkdown::render_site("index.Rmd")'
+        cd
+    # BUILD SITE -----------------------------------------
+    - name: Manual Build
+      run: |
+        cd site
+        R -e 'renv::restore()'
+        R -e 'rmarkdown::render_site("index.Rmd")'
+        cd
+    - name: Push site
+      run: |
+        cd site
+        ls -alF
+        ls -alF docs
+        git status
+        git add .
+        git commit -am "Scheduled build"
+        git push
