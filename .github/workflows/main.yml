@@ -1,3 +1,5 @@
+# renv::snapshot() to lock the lockfile
+
 name: Covid build
 
 on:
