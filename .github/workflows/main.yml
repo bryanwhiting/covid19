@@ -59,13 +59,10 @@ jobs:
     # BUILD SITE -----------------------------------------
     - name: Manual Build
       run: |
-        cd site
         R -e 'renv::restore()'
         R -e 'rmarkdown::render_site("index.Rmd")'
-        cd
     - name: Push site
       run: |
-        cd site
         ls -alF
         ls -alF docs
         git status

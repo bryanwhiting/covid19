@@ -286,12 +286,16 @@ plot_trends <- function(df_tmp, state, df_pred, pred_cum_death) {
 }
 
 
+# Rt.live predictions <- https://d14wlfuexuxgcm.cloudfront.net/covid/rt.csv
+# rt_url <- "https://d14wlfuexuxgcm.cloudfront.net/covid/rt.csv"
+# df_rt <- read_csv(rt_url) %>%
+#   left_join(data.frame(list(state=state.name, region=state.abb)), by='region')
+# View(df_rt)
 ```
 # US
 ```{r, fig.height=7, fig.width=6}
 plot_trends(df_us, state='US', df_pred=df_pred, pred_cum_death = pred_cum_death) 
   
-# Rt.live predictions <- https://d14wlfuexuxgcm.cloudfront.net/covid/rt.csv
 ```
 
 # States
