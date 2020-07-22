@@ -23,7 +23,7 @@ See "Analyses" tab for past analyses performed.
 # Plot Explanation
 Decision makers monitor new cases as they're correlated with deaths 14 days later. Models often predict cumulative deaths, which I feel can hide the recent trends and make it harder to see how much cases are rising or falling. This site is created to show how new cases relates to deaths 14 days later and includes forecasts for deaths. The goal is for this to be a resource. As you see headlines reporting new cases, you can use these plots to put past trends in perspective with current and expected trends.
 
-* **Title:** The chart title shows "current cumulative deaths and [predicted cumulative deaths over next 4 weeks]".
+* **Title:** The chart title shows "current cumulative deaths and [predicted cumulative deaths over next 4 weeks]". CFR is reported as `# Dead/# Confirmed`.
 * **Chart Points/Colors:** Blue = 14-day lag of new cases. Light blue correpsonds to the green (present day deaths deaths). Dark blue is just the last 14 days of new cases and doesn't have an associated green dot due to the lag shift. The dark blue can correspond to the dark green (predictions). This helps show how the current trends in new cases relate to the most recent predictions.
 * **Chart Lines:** The lines represent a 7-day moving average. The dotted line represents forecasted trend.
 * **Forecasts:** The shaded cone represents forecast uncertainty. The gray background shading represents forecast period. As time passes, some light-green dots appear in the forecast period which can help you assess the accuracy of predicted deaths as it relates to observed deaths.
@@ -211,6 +211,8 @@ plot_trends <- function(df_tmp, state, df_pred, pred_cum_death, df_rt=NA) {
   rt_red = "#dd5157"
   rt_green = "#3EB23A"
   
+  cfr = percent(max(df_tmp$dead_cum)/max(df_tmp$confirmed), accuracy=0.1)
+  
   df1 <- df_tmp %>% select(date, new14, new14_ma)
   df2 <- df_tmp %>% select(date, dead, dead_ma)
   df3 <- df_tmp %>% filter(date >= Sys.Date() - 14) %>% 
@@ -221,7 +223,7 @@ plot_trends <- function(df_tmp, state, df_pred, pred_cum_death, df_rt=NA) {
   min_date = min(df1$date)
   pred_date = min(df_pred$date)
   min_pred_date = min(df_pred[2:nrow(df_pred),]$date)
-  max_date = max(df_pred$date)
+  max_date = max(df_pred$date) + 10
   middle_date = (max_date - min_pred_date)/2 + min_pred_date
   forecast_title = glue('{month(pred_date)}/{day(pred_date)} FORECAST')
   
@@ -235,7 +237,7 @@ plot_trends <- function(df_tmp, state, df_pred, pred_cum_death, df_rt=NA) {
   
   curr_date_str = glue('{month(curr_date)}/{day(curr_date)}')
   max_date_str = glue('{month(max_date)}/{day(max_date)}')
-  title_str = glue('{state}\n{curr_date_str} = {comma(curr_dead_cnt)} [+{comma(dead_growth)} by {max_date_str} = {comma(pred_cum_death)}]')
+  title_str = glue('{state}\n{curr_date_str} = {comma(curr_dead_cnt)} [+{comma(dead_growth)} by {max_date_str} = {comma(pred_cum_death)}] CFR: {cfr}')
   
   # New cases
   p <- ggplot() + 
@@ -252,7 +254,8 @@ plot_trends <- function(df_tmp, state, df_pred, pred_cum_death, df_rt=NA) {
     labs(x='', y='')  +
     annotate('text', x=max(df3$date), 
              y=df3[df3$date == max(df3$date),]$new,
-             vjust = 2,
+             hjust = -.3,
+             vjust = .2,
              color=colors[4],
              label = comma(df3[df3$date == max(df3$date),]$new))
   
@@ -289,7 +292,10 @@ plot_trends <- function(df_tmp, state, df_pred, pred_cum_death, df_rt=NA) {
     
     # Rt plot start
     p_rt <- ggplot() +
-      geom_hline(yintercept=1, color='gray') 
+      geom_hline(yintercept=1, color='gray') +
+      geom_line(data=df_rt_tmp, aes(x=date, y=mean), color='gray') +
+        geom_ribbon(data=df_rt_tmp, aes(x=date, ymin=lower_80, ymax=upper_80), 
+                    color=NA, alpha=0.2, fill='gray') 
     
     # only plot if not 100% missing
     if (not_missing(df_rt_tmp_above)){
@@ -311,14 +317,19 @@ plot_trends <- function(df_tmp, state, df_pred, pred_cum_death, df_rt=NA) {
         geom_ribbon(data=df_rt_tmp_mid, aes(x=date, ymin=lower_80, ymax=upper_80), 
                     color=NA, alpha=0.2, fill=colors[3]) 
     }
+    
+    last_rt_date = max(df_rt_tmp$date)
+    last_rt = df_rt_tmp[df_rt_tmp$date == last_rt_date,]$mean %>% round(2)
     p_rt = p_rt +
       scale_x_date(limits = c(min_date, max_date)) + 
-      scale_y_continuous(label=comma, limits = c(0.6, 1.4)) + 
+      scale_y_continuous(label=comma, limits = c(0.5, 1.5)) + 
       theme(axis.text.x = element_blank(),
             plot.margin = unit(c(0, 0, 0, 0), "cm")) + 
       labs(y='', x='') + 
       annotate("label", x=min_date, y=1.4, 
-               label='Rt', hjust=0, vjust=1) 
+               label='Rt', hjust=0, vjust=1) +
+      annotate("label", x=last_rt_date, y=last_rt, 
+               label=last_rt, hjust=0, vjust=0) 
   }
  
   
@@ -338,8 +349,22 @@ plot_trends <- function(df_tmp, state, df_pred, pred_cum_death, df_rt=NA) {
     theme(plot.margin = unit(c(0, 0, 0, 0), "cm"), 
           plot.caption.position='plot',
           plot.caption = element_text(hjust=0, vjust=10)) + 
-    annotate("text", x=middle_date, y=max(df_pred$ul, df_tmp$dead), label=forecast_title) + 
-    annotate("label", x=min_date, y=max(df_pred$ul, df_tmp$dead), label='Deaths', hjust=0, vjust=1) + 
+    annotate("text", x=middle_date, y=max(df_pred$ul, df_tmp$dead), 
+             label=forecast_title) + 
+    annotate("label", x=min_date, y=max(df_pred$ul, df_tmp$dead), 
+             label='Deaths', hjust=0, vjust=1) + 
+    annotate('text', x=max(df_pred$date), 
+             y=df_pred[df_pred$date == max(df_pred$date),]$point,
+             hjust = -.3,
+             vjust = .2,
+             color=dk_green,
+             label = comma(df_pred[df_pred$date == max(df_pred$date),]$point)) +
+    annotate('text', x=max(df2$date), 
+             y=df2[df2$date == max(df2$date),]$dead,
+             hjust = -.3,
+             vjust = .2,
+             color=colors[2],
+             label = comma(df2[df2$date == max(df2$date),]$dead)) +
     labs(x='', y='', caption='Plot: bryanwhiting.github.io/covid19\nRt: rt.live; Forecasts: covid19forecasthub.org, cdc.gov; Data: Johns Hopkins') 
   # p2
   
@@ -384,13 +409,13 @@ plot_trends <- function(df_tmp, state, df_pred, pred_cum_death, df_rt=NA) {
 
 ```
 # US
-```{r, fig.height=7, fig.width=6}
+```{r 'us', fig.height=7, fig.width=6}
 plot_trends(df_us, state='US', df_pred=df_pred, pred_cum_death = pred_cum_death) 
   
 ```
 
 # States
-```{r, results='asis', fig.height=9, fig.width=7} 
+```{r 'states', results='asis', fig.height=9, fig.width=7} 
 #  fig.show="hold", out.width="50%",
 #, layout="l-screen-inset"}
 states = state.name
