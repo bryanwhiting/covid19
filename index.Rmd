@@ -1,7 +1,10 @@
 ---
 title: "COVID-19 US and State Trends"
 description: Wear a mask, safe a life.
-site: distill::distill_website
+site: 
+  distill::distill_website:
+    toc: true
+    toc_depth: 2
 ---
 
 ```{r setup, include=FALSE}
@@ -95,6 +98,16 @@ df_us = read_covid(url_conf, 'confirmed') %>%
   filter(date > Sys.Date() - 60) %>%
   ungroup()
 
+# Rt.live predictions <- https://d14wlfuexuxgcm.cloudfront.net/covid/rt.csv
+rt_url <- "https://d14wlfuexuxgcm.cloudfront.net/covid/rt.csv"
+states = data.frame(list(state=state.name, region=state.abb)) %>%
+  mutate(state = as.character(state), region = as.character(region))
+df_rt <- read_csv(rt_url) %>%
+  left_join(states, by='region') %>%
+  select(date, state, lower_80, mean, upper_80)
+# View(df_rt)
+
+
 
 # PREDICTED DEATHS
 # TODO: Update this to pull from Reichlab directly
@@ -151,6 +164,8 @@ out <- process_preds(df_preds, df_tmp, state ='National', forecast_date = foreca
 df_pred <- out$df_pred
 pred_cum_death <- out$pred_cum_death
 
+
+
 # cor(df$new14, df$dead, use='complete.obs')
 
 
@@ -188,10 +203,13 @@ pred_cum_death <- out$pred_cum_death
 ```
 
 ```{r}
-plot_trends <- function(df_tmp, state, df_pred, pred_cum_death) {
+plot_trends <- function(df_tmp, state, df_pred, pred_cum_death, df_rt=NA) {
   colors = palette_pander(6) 
   # Dark green color is a shade of #009e73: https://www.color-hex.com/color/009e73
   dk_green = "#005e45"
+  dk_red = "#9e002b"
+  rt_red = "#dd5157"
+  rt_green = "#3EB23A"
   
   df1 <- df_tmp %>% select(date, new14, new14_ma)
   df2 <- df_tmp %>% select(date, dead, dead_ma)
@@ -229,8 +247,80 @@ plot_trends <- function(df_tmp, state, df_pred, pred_cum_death) {
     scale_y_continuous(label=comma) + 
     theme(axis.text.x = element_blank(),
           plot.margin = unit(c(0, 0, 0, 0), "cm")) +
-    annotate("label", x=min_date, y=max(df_tmp$new), label='14-day Lag of New Cases', hjust=0, vjust=1) +
-    labs(x='', y='')  
+    annotate("label", x=min_date, y=max(df_tmp$new), 
+             label='14-day Lag of New Cases', hjust=0, vjust=1) +
+    labs(x='', y='')  +
+    annotate('text', x=max(df3$date), 
+             y=df3[df3$date == max(df3$date),]$new,
+             vjust = 2,
+             color=colors[4],
+             label = comma(df3[df3$date == max(df3$date),]$new))
+  
+  
+  
+  if (state != 'US') {
+    # RT CHART
+    df_rt_tmp <- df_rt %>% filter(state == !!state)
+    df_rt_tmp_below <- df_rt_tmp %>% 
+      mutate(
+        mean = ifelse(upper_80 < 1, mean, NA),
+        lower_80 = ifelse(upper_80 < 1, lower_80, NA),
+        upper_80 = ifelse(upper_80 < 1, upper_80, NA)
+      )
+    df_rt_tmp_mid <- df_rt_tmp %>% 
+      mutate(
+        mean = ifelse(lower_80 < 1 & upper_80 > 1, mean, NA),
+        lower_80 = ifelse(lower_80 < 1 & upper_80 > 1, lower_80, NA),
+        upper_80 = ifelse(lower_80 < 1 & upper_80 > 1, upper_80, NA)
+      )
+    
+    df_rt_tmp_above <- df_rt_tmp %>% 
+      mutate(
+        mean = ifelse(lower_80 >= 1, mean, NA),
+        lower_80 = ifelse(lower_80 >= 1, lower_80, NA),
+        upper_80 = ifelse(lower_80 >= 1, upper_80, NA)
+      )
+    
+    # only plot if not 100% missing
+    not_missing <- function(df){
+      # all of the rows for mean will be missing if conditions aren't met
+      sum(is.na(df$mean)) != nrow(df)
+    }
+    
+    # Rt plot start
+    p_rt <- ggplot() +
+      geom_hline(yintercept=1, color='gray') 
+    
+    # only plot if not 100% missing
+    if (not_missing(df_rt_tmp_above)){
+      p_rt = p_rt + 
+        geom_line(data=df_rt_tmp_above, aes(x=date, y=mean), color=rt_red) +
+        geom_ribbon(data=df_rt_tmp_above, aes(x=date, ymin=lower_80, ymax=upper_80), 
+                    color=NA, alpha=0.2, fill=rt_red) 
+    }
+    
+    if (not_missing(df_rt_tmp_below)){
+      p_rt = p_rt + 
+        geom_line(data=df_rt_tmp_below, aes(x=date, y=mean), color=rt_green) +
+        geom_ribbon(data=df_rt_tmp_below, aes(x=date, ymin=lower_80, ymax=upper_80), 
+                    color=NA, alpha=0.2, fill=rt_green) 
+    }
+    if (not_missing(df_rt_tmp_mid)) {
+      p_rt = p_rt +
+        geom_line(data=df_rt_tmp_mid, aes(x=date, y=mean), color=colors[3], size=1) +
+        geom_ribbon(data=df_rt_tmp_mid, aes(x=date, ymin=lower_80, ymax=upper_80), 
+                    color=NA, alpha=0.2, fill=colors[3]) 
+    }
+    p_rt = p_rt +
+      scale_x_date(limits = c(min_date, max_date)) + 
+      scale_y_continuous(label=comma, limits = c(0.6, 1.4)) + 
+      theme(axis.text.x = element_blank(),
+            plot.margin = unit(c(0, 0, 0, 0), "cm")) + 
+      labs(y='', x='') + 
+      annotate("label", x=min_date, y=1.4, 
+               label='Rt', hjust=0, vjust=1) 
+  }
+ 
   
   p2 <- ggplot() +
     geom_rect(aes(xmin = min_pred_date, 
@@ -250,11 +340,11 @@ plot_trends <- function(df_tmp, state, df_pred, pred_cum_death) {
           plot.caption = element_text(hjust=0, vjust=10)) + 
     annotate("text", x=middle_date, y=max(df_pred$ul, df_tmp$dead), label=forecast_title) + 
     annotate("label", x=min_date, y=max(df_pred$ul, df_tmp$dead), label='Deaths', hjust=0, vjust=1) + 
-    labs(x='', y='', caption='Plot: bryanwhiting.github.io/covid19\nForecasts: covid19forecasthub.org, cdc.gov; Data: Johns Hopkins') 
+    labs(x='', y='', caption='Plot: bryanwhiting.github.io/covid19\nRt: rt.live; Forecasts: covid19forecasthub.org, cdc.gov; Data: Johns Hopkins') 
   # p2
   
   # title: https://wilkelab.org/cowplot/articles/plot_grid.html#joint-plot-titles
-  title <- ggdraw() + 
+  p_title <- ggdraw() + 
     draw_label(
       title_str,
       fontface = 'bold',
@@ -271,8 +361,13 @@ plot_trends <- function(df_tmp, state, df_pred, pred_cum_death) {
   # TODO: add rt.live on bottom 
   # TODO: Fix subtitle
   # plots <- cowplot::plot_grid(p, p2, p2, align='v', ncol=1, rel_heights = c(0.3, 0.3, 0.2))
-  plots <- plot_grid(p, p2, align='v', ncol=1, rel_heights=c(0.4, 0.6))
-  plot_grid(title, plots, ncol=1, rel_heights = c(0.15, .9))
+  if (state == 'US'){
+    plots <- plot_grid(p, p2, align='v', ncol=1, rel_heights=c(0.4, 0.6))
+  } else {
+    plots <- plot_grid(p_rt, p, p2, align='v', ncol=1, 
+                       rel_heights=c(0.15, 0.35, 0.45))
+  }
+  plot_grid(p_title, plots, ncol=1, rel_heights = c(0.15, .9))
     
   # Attempt to add legend
   # scale_color_identity(guide='legend')
@@ -286,11 +381,7 @@ plot_trends <- function(df_tmp, state, df_pred, pred_cum_death) {
 }
 
 
-# Rt.live predictions <- https://d14wlfuexuxgcm.cloudfront.net/covid/rt.csv
-# rt_url <- "https://d14wlfuexuxgcm.cloudfront.net/covid/rt.csv"
-# df_rt <- read_csv(rt_url) %>%
-#   left_join(data.frame(list(state=state.name, region=state.abb)), by='region')
-# View(df_rt)
+
 ```
 # US
 ```{r, fig.height=7, fig.width=6}
@@ -299,7 +390,7 @@ plot_trends(df_us, state='US', df_pred=df_pred, pred_cum_death = pred_cum_death)
 ```
 
 # States
-```{r, results='asis', fig.height=7, fig.width=7} 
+```{r, results='asis', fig.height=9, fig.width=7} 
 #  fig.show="hold", out.width="50%",
 #, layout="l-screen-inset"}
 states = state.name
@@ -311,8 +402,8 @@ for (state in states){
   df_pred <- out$df_pred
   pred_cum_death <- out$pred_cum_death
   
-  p <- plot_trends(df_tmp, state=state, df_pred=df_pred, pred_cum_death = pred_cum_death) 
-  cat(glue('\n\n#### {state}\n\n\n'))
+  p <- plot_trends(df_tmp, state=state, df_pred=df_pred, pred_cum_death = pred_cum_death, df_rt=df_rt) 
+  cat(glue('\n\n## {state}\n\n\n'))
   print(p)
   cat('\n ')
 }
