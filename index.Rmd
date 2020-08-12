@@ -2,9 +2,7 @@
 title: "COVID-19 US and State Trends"
 description: Wear a mask, safe a life.
 site: 
-  distill::distill_website:
-    toc: true
-    toc_depth: 2
+  distill::distill_website
 ---
 
 ```{r setup, include=FALSE}
@@ -261,6 +259,7 @@ plot_trends <- function(df_tmp, state, df_pred, pred_cum_death, df_rt=NA) {
   
   
   
+  # if (state == 'xxx') { # comment this if you want to have the rt chart
   if (state != 'US') {
     # RT CHART
     df_rt_tmp <- df_rt %>% filter(state == !!state)
@@ -386,10 +385,13 @@ plot_trends <- function(df_tmp, state, df_pred, pred_cum_death, df_rt=NA) {
   # TODO: add rt.live on bottom 
   # TODO: Fix subtitle
   # plots <- cowplot::plot_grid(p, p2, p2, align='v', ncol=1, rel_heights = c(0.3, 0.3, 0.2))
-  if (state == 'US'){
+  
+  
+  # if (state != 'US'){ 
+  if (state == 'US'){# uncomment for rt.live
     plots <- plot_grid(p, p2, align='v', ncol=1, rel_heights=c(0.4, 0.6))
   } else {
-    plots <- plot_grid(p_rt, p, p2, align='v', ncol=1, 
+    plots <- plot_grid(p_rt, p, p2, align='v', ncol=1,
                        rel_heights=c(0.15, 0.35, 0.45))
   }
   plot_grid(p_title, plots, ncol=1, rel_heights = c(0.15, .9))
