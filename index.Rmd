@@ -110,14 +110,19 @@ df_rt <- read_csv(rt_url) %>%
 # PREDICTED DEATHS
 # TODO: Update this to pull from Reichlab directly
 # https://github.com/reichlab/covid19-forecast-hub/tree/master/data-processed
-forecast_date = '2020-07-06'
-forecast_date = '2020-07-13'
+# forecast_date = '2020-07-06'
+# forecast_date = '2020-07-13'
+# forecast_date = '2020-07-27'
+# forecast_date = '2020-08-03'
+# forecast_date = '2020-08-10'
+forecast_date = '2020-08-24'
 df_preds <-  read_csv(glue('https://www.cdc.gov/coronavirus/2019-ncov/covid-data/files/{forecast_date}-model-data.csv')) %>% 
-  filter(model=='Ensemble') %>% 
+  filter(model=='Ensemble') %>% #View()
   rename(date = target_week_end_date,
          state=location_name,
          ll = quantile_0.025,
          ul = quantile_0.975) %>%
+  mutate(date = ymd(date)) %>%
   arrange(state, date)
 
 process_preds <- function(df_preds, df_tmp, state, forecast_date){
@@ -132,6 +137,7 @@ process_preds <- function(df_preds, df_tmp, state, forecast_date){
   
   df_out <- df_preds %>% 
     filter(state == !!state) %>% 
+    filter(str_detect(target, "wk ahead cum death")) %>% # could be inc death
     # data need to be re-calculated to be not in cumulative form
     # subtract the cum_death to get first week's pred adjusted
     # and then subtract pred from prior prediction bc it's predicting cum death
@@ -142,7 +148,7 @@ process_preds <- function(df_preds, df_tmp, state, forecast_date){
       ll = (ll - cum_death)/7,
       ll = ll - lag(ll, default=0),
       ul = (ul - cum_death)/7,
-      ul = ul - lag(ul, default=0)) %>% 
+      ul = ul - lag(ul, default=0)) %>%
     select(date, point, ll, ul) %>%
     # Join the 
     rbind(data.frame(
